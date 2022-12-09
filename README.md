@@ -1,5 +1,5 @@
 # Kamikaze Invaders
-**Under Development**
+**== Under Development ==**
 
 A Galaga and Space Invaders inspired 2D game in Python using Pygame.
 
