@@ -34,6 +34,16 @@ class MovableObject(GameObject):
 						  pixels per frame
 		"""
 		super().__init__(data)
+		self.scr_width = int(cfg.get_config_value('width', 'SCREEN'))
+		self.scr_height = int(cfg.get_config_value('height', 'SCREEN'))
+		self.is_stopped = False
+		self.is_dying = False
+		self.direction_switched = False
+		self.min_xpos = 0
+		self.max_xpos = self.scr_width - data['iwidth']
+		self.min_ypos = 0
+		self.max_ypos = self.scr_height - data['iheight']
+
 		if 'image2' in data:
 			self.image2 = data['image2']
 		if 'min_xpos' in data:
@@ -48,11 +58,6 @@ class MovableObject(GameObject):
 			self.MOVE_X_RATE = data['speedx']
 		if 'speedy' in data:
 			self.MOVE_Y_RATE = data['speedy']
-		self.scr_width = cfg.get_config_value('width', 'SCREEN')
-		self.scr_height = cfg.get_config_value('height', 'SCREEN')
-		self.is_stopped = False
-		self.is_dying = False
-		self.direction_switched = False
 	# End: def MovableObject.__init__
 
 	def die(self, swap_image=False):

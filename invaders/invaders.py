@@ -45,7 +45,7 @@ class KamikazeInvaders:
 		DO_LOOP = True
 		WINNER = False
 		player = PlayerCharacter(get_object_data('player'))
-		enemies = self._spawn_enemies()
+		enemies = self._spawn_enemies(player.get_ypos())
 		game_objects = {'player': player, 'enemies': enemies, 'bullets': []}
 		self.max_bullets = 1
 
@@ -75,24 +75,28 @@ class KamikazeInvaders:
 		pygame.quit()
 	# End: def KamikazeInvaders.run
 
-	def _spawn_enemies(self):
+	def _spawn_enemies(self, max_ypos):
 		"""
 		Creates the enemies to shoot and spawns them at the top of the screen.
 		"""
-		enemies = {'beige': [], 'blue': [], 'green': [], 'pink': [], 'yellow': []}
-		data = get_object_data('greenEnemy')
-		enemy_width = int(data['iwidth'] * 1.5)
-		total_width = enemy_width * 10
-		xpos = (self.width - total_width) // 2
-		movement = xpos - 10
-		for i in range(10):
-			data['xpos'] = xpos
-			data['ypos'] = 10
-			data['min_xpos'] = xpos - movement
-			data['max_xpos'] = xpos + enemy_width + movement
-			enemy = EnemyCharacter(data.copy())
-			enemies['green'].append(enemy)
-			xpos += enemy_width
+		enemies = {'beige': [], 'green': [], 'pink': [], 'yellow': [], 'blue': []}
+		ypos = 10
+		for enemy_type in enemies:
+			data = get_object_data(f'{enemy_type}Enemy')
+			enemy_width = int(data['iwidth'] * 1.5)
+			total_width = enemy_width * 10
+			xpos = (self.width - total_width) // 2
+			movement = xpos - 10
+			for i in range(10):
+				data['xpos'] = xpos
+				data['ypos'] = ypos
+				data['min_xpos'] = xpos - movement
+				data['max_xpos'] = xpos + enemy_width + movement
+				data['max_ypos'] = max_ypos
+				enemy = EnemyCharacter(data.copy())
+				enemies[enemy_type].append(enemy)
+				xpos += enemy_width
+			ypos = data['ypos'] + data['iheight'] + 10
 
 		return enemies
 	# End: def KamikazeInvaders._spawn_enemies

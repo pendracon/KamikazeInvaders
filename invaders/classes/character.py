@@ -41,8 +41,8 @@ class EnemyCharacter(MovableObject):
 		once it reaches its targeted boundary or is in dying state.
 		"""
 		super().move_x(bidirectional, min_pos, max_pos)
-#		if self.direction_switched:
-#			self.move_y(bidirectional, self.min_ypos, self.max_ypos)
+		if self.direction_switched:
+			self.move_y(False, self.get_ypos(), self.max_ypos)
 	# End: def EnemyCharacter.move_x
 # End: class EnemyCharacter
 
