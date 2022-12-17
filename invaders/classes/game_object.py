@@ -18,15 +18,12 @@ class GameObject:
 			* 'iwidth'  - the image width in pixels
 			* 'iheight' - the image height in pixels
 		"""
-		self.x_pos = data['xpos']
-		self.y_pos = data['ypos']
+		self.image1 = data['image']
+		self.starting_x_pos = data['xpos']
+		self.starting_y_pos = data['ypos']
 		self.width = data['iwidth']
 		self.height = data['iheight']
-		self.starting_x_pos = self.x_pos
-		self.starting_y_pos = self.y_pos
-
-		# Load assets
-		self.image = pygame.transform.scale(pygame.image.load(data['image']), (self.width, self.height))
+		self.reset()
 	# End: def GameObject.__init__
 
 	def is_collided(self, object):
@@ -84,6 +81,7 @@ class GameObject:
 		Resets the object's location on screen to it's original x and y pixel
 		positions.
 		"""
+		self.image = pygame.transform.scale(pygame.image.load(self.image1), (self.width, self.height))
 		self.x_pos = self.starting_x_pos
 		self.y_pos = self.starting_y_pos
 	# End: def GameObject.reset

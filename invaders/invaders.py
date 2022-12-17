@@ -1,9 +1,8 @@
 #!/usr/bin/python3
 """
-Kamikaze Invaders: a 'Space Invaders' and 'Galaxian' inspired game developed
+Kamikaze Invaders: a 'Space Invaders' and 'Galaga' inspired game developed
 with PyGame.
 """
-import sys
 import pygame
 
 import util.config as cfg
@@ -11,19 +10,18 @@ import util.config as cfg
 from classes.game_object import GameObject
 from classes.movable_object import MovableObject, PLANE_Y
 from classes.character import EnemyCharacter, PlayerCharacter
-
-
-# Color globals
-CLR_WHITE = (255, 255, 255)
-CLR_BLACK = (0, 0, 0)
+from classes.ui import QuitOrStartPanel, CLR_WHITE
 
 class KamikazeInvaders:
 	def __init__(self):
 		# Initialize resources
 		pygame.init()
 		pygame.font.init()
-		self.FONT = pygame.font.SysFont('comicsans', 75)
+		self.FONT1 = pygame.font.SysFont('comicsans', 52)
+		self.FONT2 = pygame.font.SysFont('comicsans', 36)
 		self.CLOCK_RATE = int(cfg.get_config_value('framerate', 'SCREEN'))
+		self.game_objects = {'player': None, 'helper': None, 'enemies': [], 'bullets': [], 'powerups': []}
+		self.max_bullets = 1
 
 		# Set up the main screen
 		pygame.display.set_caption(cfg.get_config_value('title', 'META'))
@@ -37,43 +35,40 @@ class KamikazeInvaders:
 			'iwidth': self.width,
 			'iheight': self.height
 			})
-	# End: def AlienInvaders.__init__
+		
+		# Set up supporting UI elements
+		self.quit_or_start_panel = QuitOrStartPanel(self.main_screen, self)
+	# End: def KamikazeInvaders.__init__
 
 	def run(self):
-		# Start the run loop
+		# Initialize game objects
+		player = PlayerCharacter(get_object_data('player'))
+		self.game_objects['player'] = player
+		self._reset(player)
+
+		# Play!
 		self.clock = pygame.time.Clock()
 		DO_LOOP = True
-		WINNER = False
-		player = PlayerCharacter(get_object_data('player'))
-		enemies = self._spawn_enemies(player.get_ypos())
-		game_objects = {'player': player, 'enemies': enemies, 'bullets': []}
-		self.max_bullets = 1
-
 		while DO_LOOP:
-			DO_LOOP, shoot_enemy = self._check_events(player)
-			if not DO_LOOP:
-				if WINNER:
-					text = self.FONT.render('You WIN!', True, CLR_BLACK)
-					DO_LOOP = True
-					WINNER = False
-				else:
-					text = self.FONT.render('You Lose!', True, CLR_BLACK)
-
-				self.main_screen.blit(text, (290, 265))
-				self._update(1)
-
-				player.reset()
-#				for enemy in enemies:
-#					enemy.reset()
-			else:
-				if shoot_enemy:
-					self._fire_weapon(player, game_objects['bullets'])
-				self._refresh(game_objects)
+			DO_LOOP = self._check_events(player)
+			if DO_LOOP:
+				DO_LOOP = not self._refresh(self.game_objects)
 				self._update(self.CLOCK_RATE)
+			if not DO_LOOP:
+				DO_LOOP = self.quit_or_start_panel.show(player)
 
 		# That's all folks!
 		pygame.quit()
 	# End: def KamikazeInvaders.run
+
+	def _reset(self, player):
+		player.reset()
+		self.max_bullets = 1
+		self.game_objects['enemies'] = self._spawn_enemies(player.get_ypos()+player.get_height())
+		self.game_objects['helper'] = None
+		self.game_objects['bullets'] = []
+		self.game_objects['powerups'] = []
+	# End: KamikazeInvaders._reset
 
 	def _spawn_enemies(self, max_ypos):
 		"""
@@ -134,29 +129,41 @@ class KamikazeInvaders:
 		return enemy_hit
 	# End: def KamikazeInvaders._is_hit
 
-	def _check_events(self, player):
-		is_running = True
-		do_attack = False
+	def _check_events(self, player, end_loop=False):
+		is_running = not end_loop
+		fire_weapon = False
 
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
-				is_running = False
+				if end_loop:
+					is_running = True
+				else:
+					is_running = False
 			elif event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_RIGHT:
 					player.set_x_direction(1)
 				elif event.key == pygame.K_LEFT:
 					player.set_x_direction(-1)
 				elif event.key == pygame.K_SPACE:
-					do_attack = True
+					if end_loop:
+						fire_weapon = True
+					else:
+						self._fire_weapon(player, self.game_objects['bullets'])
 				elif event.key == pygame.K_q:
-					is_running = False
+					if end_loop:
+						is_running = True
+					else:
+						is_running = False
 			elif event.type == pygame.KEYUP:
 				if event.key == pygame.K_RIGHT or event.key == pygame.K_LEFT:
 					player.set_x_direction(0)
 
-		return is_running, do_attack
+		if end_loop:
+			return is_running, fire_weapon
+		else:
+			return is_running
 	# End: def KamikazeInvaders._check_events
-
+ 
 	def _update(self, wait_time):
 		pygame.display.update()
 		self.clock.tick(wait_time)
@@ -166,8 +173,8 @@ class KamikazeInvaders:
 		self.main_screen.fill(CLR_WHITE)
 		self.background.draw(self.main_screen)
 
-		game_objects['player'].move_x(10, self.width-10)
-		game_objects['player'].draw(self.main_screen)
+		end_game = False
+		player = game_objects['player']
 
 		for bullet in game_objects['bullets']:
 			bullet.move_y(0, False)
@@ -182,21 +189,21 @@ class KamikazeInvaders:
 				if not enemy.is_movable():
 					enemies.remove(enemy)
 				else:
-					#enemy.move_x(10, self.width-10)
-					enemy.move_x()
 					if self._is_hit(enemy, game_objects['bullets']):
 						enemy.die(True)
+					else:
+						enemy.move_x()
+						if enemy.is_collided(player):
+							enemy.die(True)
+							player.die(True)
+							end_game = True
 					enemy.draw(self.main_screen)
 
-#			if player.isCollided( self.goal ):
-#				DO_LOOP = False
-#				WINNER = True
+		if player.is_movable():
+			player.move_x(10, self.width-10)
+		player.draw(self.main_screen)
 
-#			for enemy in enemies:
-#				enemy.move( self.background.width )
-#				enemy.draw( self.main_screen )
-#				if player.isCollided( enemy ):
-#					DO_LOOP = False
+		return end_game
 	# End: def KamikazeInvaders._refresh
 # End: class KamikazeInvaders
 
