@@ -3,7 +3,8 @@ Package of objects representing non-player and player controllable characters
 in the game.
 """
 
-from classes.movable_object import MovableObject
+from random import randint
+from classes.movable_object import MovableObject, PLANE_X, PLANE_Y, PLANE_Z
 
 
 class EnemyCharacter(MovableObject):
@@ -30,6 +31,12 @@ class EnemyCharacter(MovableObject):
 		"""
 		super().__init__(data)
 		self.points = data['points']
+		self.kamikaze_chance = data['kamikaze_chance']
+		self.fleet_y_pos = self.starting_y_pos
+		self.on_kamikaze_run = False
+
+		if 'speedy' in data:
+			self.FLEET_Y_RATE = self.MOVE_Y_RATE
 	# End: def EnemyCharacter.__init__
 
 	def move_x(self, bidirectional=True, min_pos=0, max_pos=0):
@@ -42,8 +49,70 @@ class EnemyCharacter(MovableObject):
 		"""
 		super().move_x(bidirectional, min_pos, max_pos)
 		if self.direction_switched:
+			self.MOVE_Y_RATE = self.FLEET_Y_RATE
+			self.move_y(False, self.get_ypos(), self.max_ypos)
+		elif self.is_kamikaze():
+			self.MOVE_Y_RATE = self.FLEET_Y_RATE * 0.5
 			self.move_y(False, self.get_ypos(), self.max_ypos)
 	# End: def EnemyCharacter.move_x
+
+	def move_y(self, bidirectional=True, min_pos=0, max_pos=0):
+		"""
+		Moves the object along its vertical plane in its current direction by
+		its set vertical movement rate. If bidirectional movement is specified
+		and the object is at or beyond its minimum or maximum vertical position
+		boundary then its direction is changed toward the opposite boundary.
+		Otherwise, the object's vertical movement is stopped once it reaches
+		its targeted boundary or is in dying state.
+		"""
+		super().move_y(bidirectional, min_pos, max_pos)
+	# End: def EnemyCharacter.move_y
+
+	def is_kamikaze(self):
+		return self.on_kamikaze_run
+	# End: def EnemyCharacter.is_kamikaze
+
+	def roll_kamikaze_chance(self):
+		kc = randint(0, 100)
+		self.on_kamikaze_run = kc > (100 - self.kamikaze_chance)
+		if self.on_kamikaze_run:
+			print(f'Kamikaze roll = {kc}, chance = {self.kamikaze_chance}')
+
+		return self.on_kamikaze_run
+	# End def EnemyCharacter.roll_kamikaze_chance
+
+	def update(self, movement_plane, surface, player, roll_kamikaze=False):
+		"""
+		Updates the objects position on screen along the specified movement
+		plane. See MovableObject.update.
+
+		"""
+		super().update(movement_plane, surface)
+		was_kamikaze = False
+		killed_player = False
+		if not self.is_movable():
+			if self.is_kamikaze():
+				self.y_pos = self.fleet_y_pos
+				self.is_stopped = False
+				self.on_kamikaze_run = False
+				was_kamikaze = True
+			else:
+				killed_player = True
+		else:
+			if self.is_collided(player):
+				killed_player = True
+			else:
+				if roll_kamikaze == True and not self.is_kamikaze():
+					self.roll_kamikaze_chance()
+
+		if killed_player == True:
+			self.die(True)
+			self.draw(surface)
+			player.die(True)
+			player.draw(surface)
+			
+		return was_kamikaze
+	# End: def EnemyCharacter.update
 # End: class EnemyCharacter
 
 
@@ -102,13 +171,18 @@ class PlayerCharacter(MovableObject):
 		self.y_direction = direction
 	# End: def PlayerCharacter.set_y_direction
 
-	def move_x(self, min_pos, max_pos):
+	def move_x(self, min_pos=0, max_pos=0):
 		"""
 		Moves the character along its horizontal plane in its current direction.
 		If the character is at or past its minimum (left) or maximum (right)
 		positional boundary then further movement in the boundary direction is
 		ignored.
 		"""
+		if self.min_xpos and min_pos == 0:
+			min_pos = self.min_xpos
+		if self.max_xpos and max_pos == 0:
+			max_pos = self.max_xpos
+
 		if self.x_direction > 0:
 			self.x_pos += self.MOVE_X_RATE
 		elif self.x_direction < 0:
@@ -120,20 +194,25 @@ class PlayerCharacter(MovableObject):
 			self.x_pos = min_pos
 	# End: def PlayerCharacter.move_x
 
-	def move_y(self, min_pos, max_pos):
+	def move_y(self, min_pos=0, max_pos=0):
 		"""
 		Moves the character along its vertical plane in its current direction.
 		If the character is at or past its minimum (top) or maximum (bottom)
 		positional boundary then further movement in the boundary direction is
 		ignored.x
 		"""
+		if self.min_ypos and min_pos == 0:
+			min_pos = self.min_ypos
+		if self.max_ypos and max_pos == 0:
+			max_pos = self.max_ypos
+			
 		if self.y_direction > 0:
 			self.y_pos += self.MOVE_Y_RATE
 		elif self.y_direction < 0:
 			self.y_pos -= self.MOVE_Y_RATE
 
-		if self.y_pos >= max_pos - self.height:x
-		elif self.y_pos <= min_pos:
-			self.y_pos = min_pos
+		if self.y_pos >= max_pos - self.height or self.y_pos <= min_pos:
+			self.y_pos = max_pos - self.height
 	# End: def PlayerCharacter.move_y
 # End: class PlayerCharacter
+

@@ -8,7 +8,7 @@ import pygame
 import util.config as cfg
 
 from classes.game_object import GameObject
-from classes.movable_object import MovableObject, PLANE_Y
+from classes.movable_object import MovableObject, PLANE_X, PLANE_Y
 from classes.character import EnemyCharacter, PlayerCharacter
 from classes.ui import QuitOrStartPanel, CLR_WHITE
 
@@ -20,8 +20,9 @@ class KamikazeInvaders:
 		self.FONT1 = pygame.font.SysFont('comicsans', 52)
 		self.FONT2 = pygame.font.SysFont('comicsans', 36)
 		self.CLOCK_RATE = int(cfg.get_config_value('framerate', 'SCREEN'))
-		self.game_objects = {'player': None, 'helper': None, 'enemies': [], 'bullets': [], 'powerups': []}
+		self.game_objects = {'player': None, 'helper': None, 'enemies': [], 'bullets': [], 'powerups': [], 'kamikazes': []}
 		self.max_bullets = 1
+		self.max_kamikazes = 1
 
 		# Set up the main screen
 		pygame.display.set_caption(cfg.get_config_value('title', 'META'))
@@ -42,13 +43,18 @@ class KamikazeInvaders:
 
 	def run(self):
 		# Initialize game objects
-		player = PlayerCharacter(get_object_data('player'))
+		data = get_object_data('player')
+		data['bidirectional_x'] = False
+		data['min_xpos'] = 10
+		data['max_xpos'] = self.width - 10
+		player = PlayerCharacter(data)
 		self.game_objects['player'] = player
 		self._reset(player)
 
 		# Play!
 		self.clock = pygame.time.Clock()
 		DO_LOOP = True
+		self._reset(player)
 		while DO_LOOP:
 			DO_LOOP = self._check_events(player)
 			if DO_LOOP:
@@ -78,6 +84,8 @@ class KamikazeInvaders:
 		ypos = 10
 		for enemy_type in enemies:
 			data = get_object_data(f'{enemy_type}Enemy')
+			data['bidirectional_x'] = True
+			data['bidirectional_y'] = False
 			enemy_width = int(data['iwidth'] * 1.5)
 			total_width = enemy_width * 10
 			xpos = (self.width - total_width) // 2
@@ -109,6 +117,7 @@ class KamikazeInvaders:
 			data['ypos'] = player.get_ypos()
 			data['min_ypos'] = 0
 			data['max_ypos'] = self.height
+			data['bidirectional_y'] = False
 			bullet = MovableObject(data)
 			bullet.switch_direction(PLANE_Y)
 			bullets.append(bullet)
@@ -177,31 +186,31 @@ class KamikazeInvaders:
 		player = game_objects['player']
 
 		for bullet in game_objects['bullets']:
-			bullet.move_y(0, False)
+			bullet.update(PLANE_Y, self.main_screen)
 			if not bullet.is_movable():
 				game_objects['bullets'].remove(bullet)
-			else:
-				bullet.draw(self.main_screen)
 
 		for enemy_color in game_objects['enemies']:
 			enemies = game_objects['enemies'][enemy_color]
 			for enemy in enemies:
-				if not enemy.is_movable():
-					enemies.remove(enemy)
-				else:
-					if self._is_hit(enemy, game_objects['bullets']):
-						enemy.die(True)
-					else:
-						enemy.move_x()
-						if enemy.is_collided(player):
-							enemy.die(True)
-							player.die(True)
-							end_game = True
+				if self._is_hit(enemy, self.game_objects['bullets']):
+					enemy.die(True)
 					enemy.draw(self.main_screen)
+				else:
+					if not enemy.has_died():
+						end_run = enemy.update(PLANE_X, self.main_screen, player, len(self.game_objects['kamikazes']) < self.max_kamikazes)
+					if enemy.has_died():
+						enemies.remove(enemy)
+						if enemy.is_kamikaze():
+							self.game_objects['kamikazes'].remove(enemy)
+					elif enemy.is_kamikaze():
+						self.game_objects['kamikazes'].append(enemy)
+					elif end_run == True:
+						self.game_objects['kamikazes'].remove(enemy)
+					end_game = player.has_died()
 
 		if player.is_movable():
-			player.move_x(10, self.width-10)
-		player.draw(self.main_screen)
+			player.update(PLANE_X, self.main_screen)
 
 		return end_game
 	# End: def KamikazeInvaders._refresh
@@ -217,6 +226,7 @@ def get_object_data(key_type, index=1, max=1):
 	data['speedx'] = int(cfg.get_config_value_default(f'{key_type}SpeedX', 'OBJECTS', 0))
 	data['speedy'] = int(cfg.get_config_value_default(f'{key_type}SpeedY', 'OBJECTS', 0))
 	data['points'] = int(cfg.get_config_value_default(f'{key_type}Points', 'OBJECTS', 0))
+	data['kamikaze_chance'] = int(cfg.get_config_value_default(f'{key_type}KamikazeChance', 'OBJECTS', 0))
 
 	width = int(cfg.get_config_value('width', 'SCREEN'))
 	height = int(cfg.get_config_value('height', 'SCREEN'))

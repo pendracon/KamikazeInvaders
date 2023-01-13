@@ -43,7 +43,9 @@ class MovableObject(GameObject):
 		self.max_xpos = self.scr_width - data['iwidth']
 		self.min_ypos = 0
 		self.max_ypos = self.scr_height - data['iheight']
-
+		self.bidirectional_x = None
+		self.bidirectional_y = None
+		
 		if 'image2' in data:
 			self.image2 = data['image2']
 		if 'min_xpos' in data:
@@ -58,6 +60,10 @@ class MovableObject(GameObject):
 			self.MOVE_X_RATE = data['speedx']
 		if 'speedy' in data:
 			self.MOVE_Y_RATE = data['speedy']
+		if 'bidirectional_x' in data:
+			self.bidirectional_x = data['bidirectional_x']
+		if 'bidirectional_y' in data:
+			self.bidirectional_y = data['bidirectional_y']
 	# End: def MovableObject.__init__
 
 	def die(self, swap_image=False):
@@ -86,6 +92,10 @@ class MovableObject(GameObject):
 		return not self.is_stopped
 	# End: def MovableObject.is_active
 
+	def has_died(self):
+		return self.is_dying
+	# End: def MovableObject.has_died
+
 	def switch_direction(self, movement_plane):
 		"""
 		Changes the object's movement direction to the opposite of its current
@@ -110,7 +120,7 @@ class MovableObject(GameObject):
 		self.direction_switched = True
 	# End: def MovableObject.switch_direction
 
-	def move_x(self, bidirectional=True, min_pos=0, max_pos=0):
+	def move_x(self, bidirectional=None, min_pos=0, max_pos=0):
 		"""
 		Moves the object along its horizontal plane in its current direction
 		by its set horizontal movement rate. If bidirectional movement is
@@ -123,6 +133,8 @@ class MovableObject(GameObject):
 			min_pos = int(self.min_xpos)
 		if self.max_xpos and max_pos == 0:
 			max_pos = int(self.max_xpos)
+		if self.bidirectional_x and bidirectional == None:
+			bidirectional = self.bidirectional_x
 
 		if not self.is_stopped and not self.is_dying:
 			if bidirectional:
@@ -135,7 +147,7 @@ class MovableObject(GameObject):
 			self.is_stopped = True
 	# End: def MovableObject.move_x
 
-	def move_y(self, bidirectional=True, min_pos=0, max_pos=0):
+	def move_y(self, bidirectional=None, min_pos=0, max_pos=0):
 		"""
 		Moves the object along its vertical plane in its current direction by
 		its set vertical movement rate. If bidirectional movement is specified
@@ -148,6 +160,8 @@ class MovableObject(GameObject):
 			min_pos = int(self.min_ypos)
 		if self.max_ypos and max_pos == 0:
 			max_pos = int(self.max_ypos)
+		if self.bidirectional_y and bidirectional == None:
+			bidirectional = self.bidirectional_y
 
 		if not self.is_stopped and not self.is_dying:
 			if bidirectional:
@@ -159,4 +173,29 @@ class MovableObject(GameObject):
 		if self.is_dying:
 			self.is_stopped = True
 	# End: def MovableObject.move_x
+
+	def update(self, movement_plane, surface):
+		"""
+		Updates the objects position on screen along the specified movement
+		plane. The specified movement_plane must be one of:
+			* PLANE_X - horizontal movement plane
+			* PLANE_Y - vertical movement plane
+			* PLANE_Z - both horizontal and vertical movement planes
+
+		The object must have its bidirectional indicator(s) and movement limits
+		defined at time of instantiation. If any of these are not defined then
+		no action is taken.
+		"""
+		actionable = False
+		if movement_plane in (PLANE_X, PLANE_Z):
+			if self.bidirectional_x != None and self.min_xpos != None and self.max_xpos != None:
+				self.move_x()
+				actionable = True
+		if movement_plane in (PLANE_Y, PLANE_Z):
+			if self.bidirectional_y != None and self.min_ypos != None and self.max_ypos != None:
+				self.move_y()
+				actionable = True
+		if actionable:
+			self.draw(surface)
+	# End: def MovableObject.update
 # End: class MovableObject
